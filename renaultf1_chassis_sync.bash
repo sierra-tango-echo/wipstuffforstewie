@@ -14,6 +14,6 @@ fi
 
 CHASSIS=13
 
-seq -w 1 45 | while read n; do
-  rsync -pav $IMAGEBASE/$IMAGENAME/ $IMAGE/cfd-ms-$CHASSIS0$n/
+seq -w 2 45 | while read n; do
+  rsync -pav $IMAGEBASE/$IMAGENAME/ $IMAGEBASE/cfd-ms-${CHASSIS}0$n/
 done
