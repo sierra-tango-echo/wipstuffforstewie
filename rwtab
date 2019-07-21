@@ -1,0 +1,3 @@
+dirs	/var/log
+empty	/tmp
+empty	/var/tmp
