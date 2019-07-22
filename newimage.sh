@@ -26,11 +26,6 @@ sysfs   /sys        sysfs   defaults   0 0
 proc    /proc       proc    defaults   0 0
 EOF
 
-#cat << EOF > $IMAGE/etc/resolv.conf
-#search pri.rscfd1.alces.network mgt.rscfd1.alces.network ib.rscfd1.alces.network bmc.mgt.rscfd1.alces.network rscfd1.alces.network
-#nameserver 10.10.0.1
-#EOF
-
 #PREP IMAGE
 sed -e 's/^SELINUX=.*$/SELINUX=disabled/g' -i $IMAGE/etc/sysconfig/selinux
 cp -v $DIR/rwtab $IMAGE/etc/rwtab
@@ -40,35 +35,34 @@ if [ ${READONLYROOT} -eq 1 ]; then
   sed -e 's/^TEMPORARY_STATE=.*$/TEMPORARY_STATE=yes/g' -i $IMAGE/etc/sysconfig/readonly-root
 fi
 
-
+#locale and security
 ln -snf /usr/share/zoneinfo/Europe/London $IMAGE/etc/localtime
 echo 'ZONE="Europe/London"' > $IMAGE/etc/sysconfig/clock
-
 echo 'root:$1$kl5Vk5UX$Kb.TQ73sEm5bVZiqb0v/31' | chpasswd -e -R $IMAGE
 
-if [ ${FLIGHTINSTALL} -eq 1 ]; then
-  mkdir -p $IMAGE/var/lib/flightinstall/bin/
-  cp -v $DIR/flightinstall.sh $IMAGE/var/lib/flightinstall/bin/setup.sh
-fi
-
+#prep chroot
 mount -o bind /proc $IMAGE/proc
 mount -o bind /sys  $IMAGE/sys
 mount -o bind /run  $IMAGE/run
 mount -o bind /dev  $IMAGE/dev
 
 KERNEL=`chroot $IMAGE rpm -q kernel | tail -n 1 | sed -e 's/^kernel-//g'`
-#chroot $IMAGE systemctl disable NetworkManager
+
+#we gonna use dracut to do networking
+chroot $IMAGE systemctl disable NetworkManager
+chroot $IMAGE systemctl disable network
 chroot $IMAGE systemctl disable kdump
-#chroot $IMAGE dracut -N -a livenet -a dmsquash-live -a nfs -a biosdevname -o ifcfg -f -v /boot/initrd.diskless $KERNEL
+
 chroot $IMAGE dracut -N -a livenet -a dmsquash-live -a nfs -a biosdevname -f -v /boot/initrd.$IMAGENAME $KERNEL
 
+#kickoff a metalware install on first boot? 
 if [ ${FLIGHTINSTALL} -eq 1 ]; then
   mkdir -p $IMAGE/var/lib/flightinstall/bin/
   cp -v $DIR/flightinstall.sh $IMAGE/var/lib/flightinstall/bin/setup.sh
   chroot $IMAGE bash /var/lib/flightinstall/bin/setup.sh
 fi
 
-
+#tidy
 chroot $IMAGE cp -v /boot/vmlinuz-$KERNEL /boot/kernel.$IMAGENAME
 yum clean all
 umount -f $IMAGE/proc $IMAGE/sys $IMAGE/run $IMAGE/dev
