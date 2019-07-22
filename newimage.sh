@@ -4,8 +4,8 @@ IMAGEBASE=/export/service/image/
 IMAGE=${IMAGEBASE}${IMAGENAME}
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
-READONLYROOT=0
-FLIGHTINSTALL=1
+READONLYROOT=1
+FLIGHTINSTALL=0
 
 if [ -z "${IMAGENAME}" ]; then
   echo "Gimme image name plz" >&2
@@ -29,10 +29,11 @@ EOF
 #PREP IMAGE
 sed -e 's/^SELINUX=.*$/SELINUX=disabled/g' -i $IMAGE/etc/sysconfig/selinux
 cp -v $DIR/rwtab $IMAGE/etc/rwtab
-rm -rf /etc/rwtab.d/*
+#rm -rf /etc/rwtab.d/*
 
 if [ ${READONLYROOT} -eq 1 ]; then
   sed -e 's/^TEMPORARY_STATE=.*$/TEMPORARY_STATE=yes/g' -i $IMAGE/etc/sysconfig/readonly-root
+  sed -e 's/^READONLY=.*$/READONLY=yes/g' -i $IMAGE/etc/sysconfig/readonly-root
 fi
 
 #locale and security
@@ -49,7 +50,7 @@ mount -o bind /dev  $IMAGE/dev
 KERNEL=`chroot $IMAGE rpm -q kernel | tail -n 1 | sed -e 's/^kernel-//g'`
 
 #we gonna use dracut to do networking
-chroot $IMAGE systemctl disable NetworkManager
+chroot $IMAGE systemctl enable NetworkManager
 chroot $IMAGE systemctl disable network
 chroot $IMAGE systemctl disable kdump
 
@@ -64,7 +65,7 @@ fi
 
 #tidy
 chroot $IMAGE cp -v /boot/vmlinuz-$KERNEL /boot/kernel.$IMAGENAME
-yum clean all
+chroot $IMAGE yum clean all
 umount -f $IMAGE/proc $IMAGE/sys $IMAGE/run $IMAGE/dev
 
 sleep 5
